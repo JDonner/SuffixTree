@@ -4,7 +4,7 @@
  * Implementation of the suffix tree data structure.
  *
  * NOTES:
- *    7/94  -  Initial implementation of Weiner's algorithm (Joyce Lau)   
+ *    7/94  -  Initial implementation of Weiner's algorithm (Joyce Lau)
  *    9/94  -  Partial Implementation.  (James Knight)
  *    9/94  -  Completed the implementation.  (Sean Davis)
  *    9/94  -  Redid Sean's implementation.  (James Knight)
@@ -60,7 +60,7 @@ SUFFIX_TREE stree_new_tree(int alphabet, int copyflag)
 {
   SUFFIX_TREE tree;
 
-  if (alphabet > MAXALPHA || 
+  if (alphabet > MAXALPHA ||
       (alphabet <= 0 && alphabet != STREE_DNA && alphabet != STREE_PROTEIN))
     return NULL;
 
@@ -303,7 +303,7 @@ int stree_add_string(SUFFIX_TREE tree, char *S, int M, int strid)
         lastnode = node;
       }
 
-      /* 
+      /*
        * Now, having extended S[j..i-1] to S[j..i] by rule 2, find where
        * S[j+1..i-1] is.
        */
@@ -417,15 +417,16 @@ int stree_remove_string(SUFFIX_TREE tree, int strid)
  *
  * Returns:  nothing.
  */
-void stree_traverse(SUFFIX_TREE tree, int (*preorder_fn)(),
-                    int (*postorder_fn)())
+void stree_traverse(SUFFIX_TREE tree, int (*preorder_fn)(SUFFIX_TREE, STREE_NODE),
+                    int (*postorder_fn)(SUFFIX_TREE, STREE_NODE))
 {
   stree_traverse_subtree(tree, stree_get_root(tree), preorder_fn,
                          postorder_fn);
 }
 
 void stree_traverse_subtree(SUFFIX_TREE tree, STREE_NODE root,
-                            int (*preorder_fn)(), int (*postorder_fn)())
+                            int (*preorder_fn)(SUFFIX_TREE, STREE_NODE),
+                            int (*postorder_fn)(SUFFIX_TREE, STREE_NODE))
 {
   STREE_NODE node, next;
 
@@ -603,7 +604,7 @@ int stree_get_num_children(SUFFIX_TREE tree, STREE_NODE node)
 int stree_get_labellen(SUFFIX_TREE tree, STREE_NODE node)
 {
   int len;
-  
+
   len = 0;
   while (node != stree_get_root(tree)) {
     len += stree_get_edgelen(tree, node);
@@ -723,7 +724,7 @@ int stree_get_num_leaves(SUFFIX_TREE tree, STREE_NODE node)
  *              node        -  a tree node
  *              leafnum     -  which leaf to return
  *              string_out  -  address where to store the suffix pointer
- *                                (the value stored there points to the 
+ *                                (the value stored there points to the
  *                                 beginning of the sequence containing the
  *                                 suffix, not the beginning of the suffix)
  *              pos_out     -  address where to store the position of the
@@ -735,7 +736,7 @@ int stree_get_num_leaves(SUFFIX_TREE tree, STREE_NODE node)
  *           referred to a valid leaf), and zero otherwise.
  *           NOTE: If no leaf is returned, *string_out, *pos_out and *id_out
  *                 are left untouched.
- */    
+ */
 int stree_get_leaf(SUFFIX_TREE tree, STREE_NODE node, int leafnum,
                    char **string_out, int *pos_out, int *id_out)
 {
@@ -781,7 +782,7 @@ int stree_get_leaf(SUFFIX_TREE tree, STREE_NODE node, int leafnum,
  * out of memory.  (This is the default.)
  *
  * NOTE:  This count does NOT include the space for the SUFFIX_TREE
- *        structures or the copied sequences.  It only counts the 
+ *        structures or the copied sequences.  It only counts the
  *        space used by the suffix trees themselves.
  *
  * Parameters:  size  -  the max allocation size or 0.
@@ -880,7 +881,7 @@ static void int_stree_init_alphamaps(void)
 /*
  * int_stree_insert_string
  *
- * Insert a string into the list of strings maintained in the 
+ * Insert a string into the list of strings maintained in the
  * SUFFIX_TREE structure, in preparation for adding the suffixes of
  * the string to the tree.
  *
@@ -1275,7 +1276,7 @@ void int_stree_disconnect(SUFFIX_TREE tree, STREE_NODE node)
   int_stree_disc_from_parent(tree, parent, node);
 
   if (!int_stree_has_intleaves(tree, parent) &&
-      parent != stree_get_root(tree) && 
+      parent != stree_get_root(tree) &&
       (num = stree_get_num_children(tree, parent)) < 2) {
     if (num == 0) {
       int_stree_disconnect(tree, parent);
@@ -1373,7 +1374,7 @@ void int_stree_edge_merge(SUFFIX_TREE tree, STREE_NODE node)
   if (node == stree_get_root(tree) || int_stree_isaleaf(tree, node) ||
       int_stree_has_intleaves(tree, node))
     return;
-  
+
   parent = stree_get_parent(tree, node);
   child = stree_get_children(tree, node);
   if (stree_get_next(tree, child) != NULL)
@@ -1427,7 +1428,7 @@ int int_stree_add_intleaf(SUFFIX_TREE tree, STREE_NODE node,
   else {
     intleaf->nextchild = node->children;
   }
- 
+
   node->children = (STREE_NODE) intleaf;
   node->ch = 1;
   return 1;
@@ -1553,6 +1554,7 @@ void int_stree_remove_to_position(SUFFIX_TREE tree, int id, int num_remove)
   walklen = int_stree_walk_to_leaf(tree, stree_get_root(tree), 0, S, M,
                                    &node, &pos);
   assert(walklen == M || int_stree_isaleaf(tree, node));
+  (void)walklen;
 
   next = NULL;
   rempos = 0;
@@ -1573,6 +1575,7 @@ void int_stree_remove_to_position(SUFFIX_TREE tree, int id, int num_remove)
     else {
       status = int_stree_remove_intleaf(tree, node, id, rempos);
       assert(status != 0);
+      (void)status;
 
       if (!int_stree_has_intleaves(tree, node) &&
           node != stree_get_root(tree) &&
@@ -1626,7 +1629,7 @@ int int_stree_walk_to_leaf(SUFFIX_TREE tree, STREE_NODE node, int pos,
   edgelen = stree_get_edgelen(tree, node);
   len = 0;
   while (1) {
-    while (len < N && pos < edgelen && 
+    while (len < N && pos < edgelen &&
            stree_mapch(tree, T[len]) == stree_mapch(tree, edgestr[pos])) {
       pos++;
       len++;
@@ -1678,7 +1681,7 @@ void int_stree_set_idents(SUFFIX_TREE tree)
   tree->idents_dirty = 0;
 
   /*
-   * Use a non-recursive traversal.  See stree_traverse_subtree for 
+   * Use a non-recursive traversal.  See stree_traverse_subtree for
    * details.
    */
   id = 0;
@@ -1765,7 +1768,7 @@ static void *getpage(PAGETYPE type)
   newpage->end = buffer + PAGESIZE;
   newpage->count = 0;
   newpage->size = (type == NODE ? NODES_PER_PAGE
-                                : (type == LEAF ? LEAFS_PER_PAGE 
+                                : (type == LEAF ? LEAFS_PER_PAGE
                                                 : INTLEAFS_PER_PAGE));
   newpage->next = pagelist;
   pagelist = newpage;
@@ -1847,7 +1850,7 @@ STREE_INTLEAF int_stree_new_intleaf(SUFFIX_TREE tree, int strid, int pos)
   return intleaf;
 }
 
-  
+
 /*
  * int_stree_new_leaf
  *

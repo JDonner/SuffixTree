@@ -85,10 +85,11 @@ void stree_delete_tree(SUFFIX_TREE tree);
 int stree_add_string(SUFFIX_TREE tree, char *S, int M, int id);
 int stree_remove_string(SUFFIX_TREE tree, int id);
 
-void stree_traverse(SUFFIX_TREE tree, int (*preorder_fn)(),
-                    int (*postorder_fn)());
+void stree_traverse(SUFFIX_TREE tree, int (*preorder_fn)(SUFFIX_TREE, STREE_NODE),
+                    int (*postorder_fn)(SUFFIX_TREE, STREE_NODE));
 void stree_traverse_subtree(SUFFIX_TREE tree, STREE_NODE node,
-                            int (*preorder_fn)(), int (*postorder_fn)());
+                            int (*preorder_fn)(SUFFIX_TREE, STREE_NODE),
+                            int (*postorder_fn)(SUFFIX_TREE, STREE_NODE));
 
 int stree_match(SUFFIX_TREE tree, char *T, int N,
                 STREE_NODE *node_out, int *pos_out);
