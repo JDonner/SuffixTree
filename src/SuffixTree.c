@@ -22,13 +22,13 @@ int SuffixTree_add(SuffixTree *self, char* s, int id) {
 }
 
 
-int SuffixTree_match(SuffixTree *self, char *s, 
+int SuffixTree_match(SuffixTree *self, char *s,
 		     SuffixNode **node_out, int *endpos_out) {
   int matched_chars;
   STREE_NODE stree_node;
   matched_chars = stree_match(self->tree, s, strlen(s),
 			      &stree_node, endpos_out);
-  (*node_out) = malloc(sizeof(SuffixNode *));
+  (*node_out) = malloc(sizeof(SuffixNode));
   (*node_out)->tree = self->tree;
   (*node_out)->node = stree_node;
   if ((*node_out)->node == NULL) {
@@ -158,7 +158,7 @@ char* SuffixNode_getch(SuffixNode *self) {
   result[0] = stree_getch(self->tree, self->node); result[1] = '\0';
   return result;
 };
-  
+
 
 int SuffixNode_labellen(SuffixNode *self) {
   return stree_get_labellen(self->tree, self->node);
@@ -173,7 +173,7 @@ char* SuffixNode_labelstr(SuffixNode *self) {
 		  len, 0);
   result_str[len] = '\0';   // Perhaps this isn't necessary...
   return result_str;
-} 
+}
 
 
 int SuffixNode_ident(SuffixNode *self) {
