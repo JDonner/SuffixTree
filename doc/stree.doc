@@ -1,0 +1,527 @@
+
+
+Introduction
+============
+
+This package of procedures implements a suffix tree data structure,
+allowing you to create one or more suffix trees using different
+alphabets, each of which can contain one or more strings, to add and
+remove strings from the suffix tree, to walk through and around the
+tree using both tree edges and suffix links and to easily associate
+additional values with nodes of the tree using the identifiers given
+to the tree nodes.
+
+The major design goal of this package is to reduce the amount of space
+required to store the suffix tree without impairing efficiency too
+badly.  In the current version, the suffix tree requires about 24 to
+28 bytes per character of the input strings.
+
+This goal affects the features of the package in several ways.  First,
+despite the use of STREE_NODE everywhere in the package to refer to
+nodes of the suffix tree, there are actually two different structures
+used as nodes in the tree (STREE_NODE and STREE_LEAF) and so some of
+the STREE_NODE nodes may actually be STREE_LEAF nodes.  Also, some of
+the values in the tree nodes are packed together into single words of
+the structures.  So, don't try to directly access the values in tree
+nodes, because values you think are in there may not be and other
+values may require some computation to retrieve.  Use the procedures
+of the package.
+
+Second, because some values are packed together into single words,
+there are some maximum values for the number of strings, length of any
+string, and number of nodes which can be handled by the package.
+No more than 8192 strings can be added to the tree, and the length of
+each of those strings must be less than or equal to 524,288 characters.
+The constructed tree can contain no more than 8,388,608 nodes.  If
+any of these limits are reached, the call to stree_add_string will
+fail (returning a 0).  My guess is that you'll run out of memory far
+before any of these limits are reached, but they are there.
+
+Third, the procedure stree_set_max_alloc can be used to limit the
+amount of memory the package uses (saving some memory for the rest of
+the program).  See the description of those procedures at the end of
+this document for their details.
+
+Finally, in the traditional suffix tree algorithm, unique characters
+are added to the ends of each of the input strings.  Thus, each suffix
+in the tree must end at a leaf in the tree (since nothing else could
+match that unique character).  In practice, however, actually adding
+unique characters would blow up the alphabet, so the package does not
+alter the input strings and permits suffixes to end inside the tree.
+It does this by differentiating between the nodes of the tree and the
+`leaves' of the tree (where the quoted `leaves' refers to the places
+in the tree where suffixes of the input strings end).  Each `leaf' is
+guaranteed to end at a node in the tree (no `leaf' will end in the
+middle of an edge).  And obviously each leaf in the tree must also
+have at least one `leaf' (although it may have more than one, as with
+"tend" in "intend" and "pretend").
+
+The package procedures similarly distinguish between the nodes and
+`leaves'.  All but two of the procedures get information from and
+move around the nodes of the tree, and the two procedures
+stree_get_num_leaves and stree_get_leaf get information about the
+`leaves' at a node in the tree.  So, don't use stree_get_num_leaves
+and stree_get_leaf to find out whether a node has any children,
+because having `leaves' at a node does NOT imply that the node is a
+leaf of the tree.  Use stree_get_num_children or stree_get_children
+for that test.
+
+
+
+Common Uses
+===========
+
+Here are some code fragments which illustrate several ways to use the
+package to build trees and access values.
+
+1) Creating a tree, adding strings to the tree and then deleting
+   the tree.  This code assumes that you have an array of the strings
+   "string" and an array of their lengths "length" and that the
+   characters of the strings are in the alphabet "alphabet" (see
+   stree_new_tree for what alphabets are allowed).  Since each
+   string must be given an identifier (used to access that string),
+   the value of i is also included in the call to stree_add_string.
+
+     if ((tree = stree_new_tree(alphabet, 0)) == NULL) {
+        /* Illegal alphabet or ran out of memory */
+     }
+     for (i=0; i < num_strings; i++) {
+       if (stree_add_string(tree, string[i], length[i], i) < 1) {
+         /* Return value of 1 means a success
+          * Return value of 0 means it ran out of memory
+          * Return value of -1 means "string" contains invalid
+          *     characters for alphabet
+          */
+       }
+     }
+
+     /*
+      * Computations on the suffix tree.
+      */
+     ...
+
+     stree_delete_tree(tree);
+
+
+2) Matching a string to a path in the tree (from the root). 
+   There's also a procedure `stree_walk' which will match a string
+   and a path beginning at any edge and edge position in the tree.
+ 
+     /*
+      * "string" contains the pattern string
+      * "len" is its length
+      */
+     matchlen = stree_match(tree, string, len, &node, &pos);
+      
+     /*  The first "matchlen" characters of "string" matched a path
+      *  from the root of the tree to the "pos"'th character of the
+      *  edge between "node" and its parent.
+      */
+
+
+3) Accessing the children of a node and traversing the tree.  Use
+   stree_get_children to get the first child (in alphabetical order),
+   then repeatedly call stree_get_next to get the rest of the children.
+   In all cases, the children of a node are guaranteed to be sorted
+   by the first character labeling the edges connecting the node with
+   the children.
+   (NOTE: Accessing the children works just like accessing the nodes
+          of a linked list, i.e.
+
+             for (child=node->children; child != NULL; child=child->next)
+
+          except that you MUST use the function stree_get_children and
+          stree_get_next.  The "children" and "next" fields of the 
+          STREE_NODE data structure are not exactly what they appear to be.)
+   
+
+        /*
+         * Accessing all of the children of a single node.
+         */
+        child = stree_get_children(tree, node);
+        while (child != NULL) {
+          /* Access child */
+
+          child = stree_get_next(tree, child);
+        }
+
+        /*
+         * Recursively traverse the entire tree.
+         */
+        recurse(tree, stree_get_root(tree));
+
+        ...
+      }
+
+
+      void recurse(SUFFIX_TREE tree, STREE_NODE node)
+      {
+        STREE_NODE *child;
+
+        ...
+
+        child = stree_get_children(tree, node);
+        while (child != NULL) {
+          recurse(tree, child);
+          child = stree_get_next(tree, child);
+        }
+
+        ...
+      }
+
+   In the package, you will find the procedures stree_traverse and
+   stree_traverse_substree.  These procedures will perform the same
+   traversal as above, except that they are non-recursive functions
+   which could be useful if memory is tight.
+
+
+4) Getting the suffixes which end at a node in the tree.
+
+      leafnum = 1;
+      while (stree_get_leaf(tree, node, leafnum, &string, &position, &id)) {
+        /* &string[position] is the address of the suffix */
+        leafnum++;
+      }
+
+
+5) Associating additional values with nodes in the tree.  You must
+   manage the allocation and deallocation of the memory used to store
+   those additional values, but each node is given an ID number in
+   the range of 0..num_nodes-1 which can be used as an index to the
+   additional value.  The following code computes the number of
+   suffixes ending in each subtree.
+
+       /* Construct the tree */
+     
+       num_nodes = stree_get_num_nodes(tree);
+       if ((value = malloc(num_nodes * sizeof(int))) == NULL) {
+         /* Ran out of memory */
+       }
+     
+       recurse(tree, stree_get_root(tree), value);
+     
+       ...
+
+       free(value);
+     }
+     
+     void recurse(SUFFIX_TREE tree, STREE_NODE node, int *value)
+     {
+       int id;
+       STREE_NODE *child;
+     
+       id = stree_get_ident(tree, node);
+       value[id] = stree_get_num_leaves(tree, node);
+     
+       child = stree_get_children(tree, node);
+       while (child != NULL) {
+         recurse(tree, child);
+         value[id] += value[stree_get_ident(tree, child)];
+         child = stree_get_next(tree, child);
+       }
+     }
+
+
+6) Finding all of the `leaves' for one of the strings.  The best way
+   to do this is to first perform a match to the whole string to get 
+   to the tree node where the first `leaf' is and then use the 
+   suffix links to get to the nodes for the other `leaves'.
+
+     matchlen = stree_match(tree, string, len, &node, &pos);
+     if (matchlen != len) {
+       /* For some reason the whole string wasn't found in the tree.  */
+     }
+     
+     /* "node" is the node where the first suffix ends. */
+     
+     for (i=2; i <= len; i++) {
+       next = stree_get_suffix_link(tree, node);
+     
+       /* "next" is the node where the i'th suffix ends */
+     
+       node = next;
+     }
+
+
+
+The Procedures
+==============
+
+SUFFIX_TREE stree_new_tree(int alphabet, int copy_flag)
+
+    This procedure creates a new, empty suffix tree.  An alphabet must be
+    specified for every suffix tree, and all of the strings added to that
+    tree must use characters from that alphabet.  Three predefined
+    alphabets, DNA, protein and ASCII, are supported, along with the
+    ability to use user-defined alphabets.  The procedure returns either a
+    pointer to the new tree, or NULL if it cannot dynamically allocate the
+    memory.
+
+    The constants STREE_DNA, STREE_PROTEIN and STREE_ASCII can be used to
+    specify a predefined alphabet.  The DNA and protein alphabets use only
+    the 4 or 20 IUPAC-IUB characters, except that the DNA alphabet permits
+    'U' to be used instead of 'T' (so RNA sequences are valid) and both
+    alphabets are case-insensitive (sequences can mix upper and lower
+    case).  None of the ambiguous IUPAC-IUB characters are allowed,
+    however.
+     
+    User defined alphabets of the form 0..alphasize-1 can also be used by
+    this package.  Passing a positive argument to stree_new_tree between 1
+    and 128 specifies that the sequences added to the suffix tree will use
+    such an alphabet.  So, if your strings come from a different alphabet,
+    first map the sequences to 0..alphasize-1 and then pass alphasize in
+    the call to stree_new_tree.  Alphabets may not contain more than 128
+    characters.
+
+    The "copy_flag" argument directs the package either to make make 
+    internal copies of the strings added to the suffix tree (if the 
+    flag is non-zero) or to use the strings passed into it (if the flag
+    is zero).  Making the flag 0 will save space, but beware.  Those
+    strings will be accessed by almost every package procedure, so if
+    the string is overwritten, most likely an unusual core dump will
+    occur (if you're lucky).  So, if the package is not making copies
+    and you get a core dump from inside the package, double check that
+    you are not overwriting the strings you add to the suffix tree.
+
+
+int stree_add_string(SUFFIX_TREE tree, char *string, int length, int id)
+
+    This procedure adds the suffixes of a string to the suffix tree, using
+    Ukkonen's algorithm.  The procedure returns a 1 on success, a 0 if it
+    runs out of memory and a -1 if the string contains a character not in
+    the tree's alphabet.
+
+    Several notes about the memory management.  First, if the package does
+    NOT make an internal copies of strings, the passed in string may
+    not be altered, freed or overwritten while the string is part of the
+    tree.  Most likely, a seg-fault will occur if the memory containing
+    the string is altered (if you're lucky).
+
+    Second, if the package runs out of memory (see stree_set_max_alloc for
+    info on setting an upper bound on the amount of memory the package
+    uses), any ongoing changes made to the suffix tree will be reversed
+    and the original suffix tree before the call will be restored.  So,
+    you can simply add strings until you run out of memory without
+    worrying that the tree will be incorrect if the memory runs out in the
+    middle of the addition of a string.
+
+
+int stree_remove_string(SUFFIX_TREE tree, int id)
+
+    The procedure removes the suffixes of the string identified with
+    "id" (in the call to stree_add_string).  Strings need not be
+    removed in the order they were added (they can be removed in any
+    order).  The procedure returns a 1 on success or a 0 if the string
+    is not one of the strings in the suffix tree.
+
+
+void stree_delete_tree(SUFFIX_TREE tree)
+
+    This procedure deletes the suffix tree "tree", effectively freeing up
+    all of its memory.
+
+
+int stree_get_num_nodes(SUFFIX_TREE tree)
+STREE_NODE stree_get_root(SUFFIX_TREE tree)
+
+    stree_get_num_nodes returns the number of nodes in the suffix tree.
+    stree_get_root returns the root node of the suffix tree.
+
+
+void stree_traverse(SUFFIX_TREE tree, 
+                    int (*preorder_fn)(SUFFIX_TREE tree, STREE_NODE node),
+                    int (*postorder_fn)(SUFFIX_TREE tree, STREE_NODE node))
+
+void stree_traverse_subtree(SUFFIX_TREE tree, STREE_NODE node, 
+                    int (*preorder_fn)(SUFFIX_TREE tree, STREE_NODE node),
+                    int (*postorder_fn)(SUFFIX_TREE tree, STREE_NODE node))
+
+    These two procedures implement non-recursive traversals of a suffix
+    tree (or a sub-tree) of a suffix tree.  The traversal visits the nodes
+    in sorted order, based on the labels of the nodes (i.e., the strings
+    forming the tree paths from the root to the nodes).  The passed in
+    functions preorder_fn and postorder_fn are called for each node, with
+    the tree and that node as the arguments to the functions.  Preorder_fn
+    is called before the children are visited and postorder_fn is called
+    after the children have been visited.  Either function can be NULL.
+
+    The function stree_traverse_subtree limits its traversal to the
+    subtree rooted at the "node" argument.
+
+    Both of the traversals will visit the nodes in sorted order
+    (ordered by the labels of the nodes).  The non-recursive traversal
+    can be useful in those cases where the tree is large and memory is
+    at a premium (using these procedures, the program stack won't grow
+    to the depth of the tree).
+
+
+int stree_match(SUFFIX_TREE tree, char *string, int length,
+                STREE_NODE *endnode_out, int *endpos_out)
+
+int stree_walk(SUFFIX_TREE tree, STREE_NODE begnode, int begpos,
+               char *string, int length,
+               STREE_NODE *endnode_out, int *endpos_out)
+
+    These two procedures perform matches down the tree.  Each takes a
+    string and its length and attempts to match that string against the
+    characters on the edges of the suffix tree (and so moving down the
+    tree).  stree_match begins at the root of the tree, whereas stree_walk
+    can begin its matching at any node in the tree and any position on
+    the string labeling that node's edge.
+
+    Both find the longest possible match from their starting position and
+    stop either after matching "length" characters or when no tree edge
+    contains a match to the next character of "string".  The number of
+    matched characters is returned as the result of the function, and the
+    values of *edgenode_out and *edgepos_out give the node and edge
+    position where the matching stopped.  (NOTE:  both of those arguments
+    must be the addresses of variables, as in the example function call
+    "num_match = stree_match(tree, str, len, &node, &pos)".)
+
+
+STREE_NODE stree_find_child(SUFFIX_TREE tree, STREE_NODE node, char ch)
+
+int stree_get_num_children(SUFFIX_TREE tree, STREE_NODE node)
+
+STREE_NODE stree_get_children(SUFFIX_TREE tree, STREE_NODE node)
+STREE_NODE stree_get_next(SUFFIX_TREE tree, STREE_NODE child)
+
+    These four procedures access information about the children of a
+    node.  stree_find_child returns the child where the first character on
+    the edge connecting "node" and that child is "ch".
+    stree_get_num_children returns the number of children of "node".
+    stree_get_children returns the head of a linked list of the
+    children.  stree_get_next gets the next child in the list.
+
+    So, to find a specific child, use stree_find_child.  To access all of
+    the children, use stree_get_children and then loop through the
+    list using stree_get_next. And use stree_get_num_children
+    to test if "node" is a leaf in the suffix tree (where "leaf" here
+    is different from the traditional leaves of a suffix tree in that
+    here it only implies that the node has no children.  See
+    stree_get_num_leaves and stree_get_leaf for how to access the
+    information about `leaves' in the traditional suffix-tree sense.)
+
+
+STREE_NODE stree_get_parent(SUFFIX_TREE tree, STREE_NODE node)
+STREE_NODE stree_get_suffix_link(SUFFIX_TREE tree, STREE_NODE node)
+
+    stree_get_parent returns the parent of "node" in the suffix tree, and
+    stree_get_suffix_link returns the node whose label is the string 'w'
+    if the label of "node" is 'xw', where 'x' is a character and 'w' is a
+    string.  Both procedures will return another node in the tree, except
+    when given the root of the tree, in which case they return NULL.
+
+
+char *stree_get_edgestr(SUFFIX_TREE tree, STREE_NODE node)
+int stree_get_edgelen(SUFFIX_TREE tree, STREE_NODE node)
+char stree_getch(SUFFIX_TREE tree, STREE_NODE node)
+
+    These return the string and number of characters on the suffix-tree
+    edge from the parent of "node" to "node".  NOTE: The string returned
+    by stree_get_edgestr is NOT '\0' terminated after stree_get_edgelen
+    characters.  The string pointer returned is simply a pointer into the
+    character string added by stree_add_string.
+
+    stree_getch returns the just first character on the edge, and
+    is sometimes more efficient that using "*stree_get_edgestr(tree,node)".
+
+
+char stree_mapch(SUFFIX_TREE tree, char ch)
+char stree_get_mapch(SUFFIX_TREE tree, STREE_NODE node)
+
+    The package uses DNA and protein character maps (when stree_new_tree
+    is given STREE_DNA or STREE_PROTEIN for the alphabet) to map the
+    input string characters into 0..alpha_size-1 characters that are
+    used by the suffix tree procedures.  stree_mapch implements that
+    mapping function, as appropriate for the given suffix tree.  When
+    the tree alphabet is STREE_ASCII or is a user-defined alphabet,
+    this function simply returns the input character.
+    (NOTE:  Function stree_find_child takes in an UNMAPPED character
+            as its third parameter, so don't map that character before
+            passing it to stree_find_child.)
+
+    The stree_get_mapch function performs the same operation that
+    stree_getch does, except that it returns the mapped first character
+    on the edge to node.  stree_getch always returns the unmapped
+    first character (i.e., the character that actually appears in the
+    input string).
+
+
+int stree_get_labellen(SUFFIX_TREE tree, STREE_NODE node)
+int stree_get_label(SUFFIX_TREE tree, STREE_NODE node, char *buffer,
+                    int buflen, int begin_or_end_flag)
+
+    These two procedures return the length of node's label or the label
+    itself.  The label of a node is simply the string of characters
+    occurring on the path from the root to that node.  For stree_get_label,
+    the "buffer" argument should be a character array and "buflen" should
+    be the maximum number of characters to store into "buffer".
+
+    The "node"'s label is copied into "buffer", and is '\0' terminated
+    unless the label is "buflen" characters or longer.  If the label is
+    longer than "buflen" characters, then the "begin_or_end_flag" signals
+    whether to copy the beginning or the end of the label into "buffer".
+    If the flag is 0, then the first "buflen" characters of the label are
+    copied; if non-zero, then the last "buflen" characters are copied.
+    When "buflen" characters are copied into "buffer", the copied string
+    will not be '\0' terminated.
+
+
+int stree_get_num_leaves(SUFFIX_TREE tree, STREE_NODE node)
+int stree_get_leaf(SUFFIX_TREE tree, STREE_NODE node, int leafnum,
+                   char **string_out, int *position_out, int *id_out)
+
+    Here, a `leaf' is a suffix of one of the input strings that ends at
+    this "node" (i.e., the "node"'s label matches the suffix of the
+    string).  Every suffix is guaranteed to end at a node in the tree.
+
+    stree_get_num_leaves returns the number of leaves ending at "node".
+    stree_get_leaf returns the information about the "leafnum"'th leaf
+    ending at "node", where "leafnum" must be a value between 1 and the
+    number of leaves.  (NOTE:  The leaves are not ordered by any criteria
+    other than that the construction algorithm puts them in that order.)
+
+    The stree_get_leaf function returns either a 1 or a 0 if the "leafnum"
+    leaf exists, and if it does exist, then "*string_out" is set to the string
+    containing the suffix, "*position_out" is set to the position in
+    that string (here, the suffix positions are from 0 to strlen-1)
+    and "*id_out" is set to the identifier for the string.
+    NOTE: The "*string_out" value points to the beginning of the string
+    containing the suffix, not to the suffix itself.  So, for a call
+    "stree_get_leaf(tree, node, 1, &string, &pos, &id)", the pointer to the
+    suffix is &string[pos].
+
+
+int stree_get_ident(SUFFIX_TREE tree, STREE_NODE node)
+
+    At all times, the package maintains ID numbers for all of the nodes in
+    the tree, and these identifiers can be used in associating extra
+    information with nodes in the tree.  The nodes of the suffix tree are
+    numbered from 0..num_nodes-1 using a depth-first search tree traversal
+    of the nodes in sorted order of their labels.  Each node's ID number is
+    set when the node is first reached (i.e., the traversal is similar to a
+    pre-order numbering of a binary search tree, except that each node in
+    the suffix tree can have more than 2 children).
+
+    NOTE:  These identifiers will be recomputed (and so will change) each
+    time the structure of the tree changes (most commonly when 
+    stree_add_string or stree_remove_string adds or removes a string
+    from the suffix tree).  However, the identifiers are stable between
+    such times.
+
+    So, if you need to associate extra values with nodes in the suffix
+    tree, then simply construct the suffix tree, get the number of nodes
+    of the tree, allocate an array of size num_nodes, and use the nodes'
+    ID numbers as indices into that array.
+
+
+void stree_set_max_alloc(int num_bytes)
+
+    This package uses quite a bit of memory (about 24-28 bytes per
+    sequence character). This procedure gives a bit of control over
+    the memory management.  It sets an upper bound on the number of bytes
+    allocated by the package.  Once this limit is reached, all calls to
+    stree_add_string will fail to add the string to the suffix tree and
+    will return a 0.  By default, this value is set to -1, specifying that
+    no limit is set.

@@ -1,0 +1,91 @@
+SuffixTree --- A Suffix Tree library for Python
+
+Conspirator: Danny Yoo (dyoo@hkn.eecs.berkeley.edu)
+
+This is a SWIG wrapper around Dan Gusfield's 'strmat' suffix tree
+library.
+
+    http://www.cs.ucdavis.edu/~gusfield/strmat.html
+
+Suffix trees allow for very powerful string matching, and are used
+quite a bit in many elegant string algorithms.  Since this is a
+wrapper around strmat.stree, most of the documentation in
+doc/stree.doc should apply.
+
+
+Here are the modules included in the SuffixTree package:
+
+    o SuffixTree.SuffixTree -- The suffix tree structure.  This is a
+      thin wrapper around strmat's stree data structure.  This isn't a
+      complete wrapper yet; I need to find some time to complete this.
+      The wrapper appears to be good enough for simple stuff.
+
+      Methods of SuffixTree:
+
+          o SuffixTree(alphabet=STREE_ASCII)
+
+              Construct a new SuffixTree.  By default, the alphabet
+              used by the SuffixTree is ASCII.  Other choices include
+              STREE_DNA, STREE_RNA, and STREE_PROTEIN.
+
+          o add(string, id)
+
+              Adds a string to the suffix tree with an id.
+
+          o root()
+
+              Returns the root() SuffixNode of the tree.
+
+          o num_nodes():
+
+              Returns the total number of nodes held in the tree.
+
+          o match(string)
+
+              Given a string, traverse the suffix tree and return a
+              3-tuple (match_length, suffix_node, endpos)
+              
+              
+
+    o SuffixTree.SuffixNode  (I need to fix the documentation here)
+
+        Methods of 
+        num_children()
+        find_child(char ch)
+        children()
+        next()
+        parent()
+        suffix_link()
+        edgelen()
+        edgestr()
+        getch()
+        labellen()
+        labelstr()
+        ident()
+        num_leaves()
+        leaf(int leafnum)
+
+
+
+    o SuffixTree.SubstringDict -- An application of suffix trees toward
+      substring matching.  An example might help:
+
+        ###
+        >>> import SuffixTree.SubstringDict
+        >>> d = SuffixTree.SubstringDict()
+        >>> d['foobar'] = 1
+        >>> d['barfoo'] = 2
+        >>> d['forget'] = 3
+        >>> d['arfbag'] = 4
+        >>> d['a']
+        [4, 2, 1]
+        >>> d['arf']
+        [2, 4]
+        >>> d['oo']
+        [2, 1]
+        >>> d['food']
+        []
+        ###
+
+      SubstringDict provides a mapping that allows for substrings of
+      keys.  The keys do need to be strings though.
