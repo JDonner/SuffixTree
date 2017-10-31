@@ -1,3 +1,20 @@
+===============================================================================
+Note from JDonner -- this is pretty much defunct, a simple test crashes and I'm
+too lazy to try to penetrate the SWIG to figure it out. I'm going to leave it
+up, because I hate to take code off the net, (plus I don't see how to, via
+github anyway :/ (maybe because it's been forked)).
+
+Plus the license is dubious, probably academic. I've emailed the original
+author, Dan Gusfield, and will update with his response.
+
+There are plenty of other Python suffix trees out there nowadays (there weren't
+when I grabbed this from Danny Yoo).  So, this is unsupported. Feel free to fork
+it if you really must. I believe the underlying C code is sound, (though limited
+to single-byte character data!) Maybe try re-wrapping it with a later version of
+SWIG or re-doing it in Cython if you really want.
+===============================================================================
+
+
 SuffixTree --- A Suffix Tree library for Python
 
 Conspirator: Danny Yoo (dyoo@hkn.eecs.berkeley.edu)
